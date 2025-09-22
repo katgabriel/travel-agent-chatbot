@@ -16,9 +16,6 @@ async def call_ollama(message: str) -> str:
         "prompt": message,
         "stream": False
     }
-
-    print("Sending payload to Ollama:", payload)
-
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(OLLAMA_URL, json=payload)

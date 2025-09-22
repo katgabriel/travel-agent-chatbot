@@ -9,7 +9,11 @@ cl.instrument_openai()
 
 settings = {
     "model": "gpt-3.5-turbo",
-    "temperature": 0,
+    "temperature": 0.7,
+    "max_tokens": 500,
+    "top_p": 1,
+    "frequency_penalty": 0.5,
+    "presence_penalty": 0.5,
 }
 
 chat_history = []
@@ -18,7 +22,6 @@ chat_history = []
 async def start():
     actions=[
             cl.Action(name="budget", label="💸 Budget-friendly destinations", payload={"value": "Can you suggest some budget-friendly travel destinations under $1000?"}),
-            #cl.Action(name="family", label="👨‍👩‍👧‍👦 Family vacation ideas", payload={"value": "What are some good family vacation ideas?"}),
             cl.Action(name="nature", label="🌲 Nature travel spots", payload={"value": "Can you recommend some nature travel spots?"}),
             cl.Action(name="solo", label="🧳 Tips for solo travelers", payload={"value": "What are some tips for solo travelers?"})
         ]  
@@ -26,20 +29,24 @@ async def start():
         content="Hello! I'm your travel agent chatbot. Let me know how I can assist you, or choose a topic to get started:", actions=actions    
     ).send()
 
+
 @cl.action_callback("budget")
 async def on_action(action: cl.Action):
     user_message = action.payload["value"]
     await handle_message(cl.Message(content=user_message))
+
 
 @cl.action_callback("nature")
 async def on_action(action: cl.Action):
     user_message = action.payload["value"]
     await handle_message(cl.Message(content=user_message))
 
+
 @cl.action_callback("solo")
 async def on_action(action: cl.Action):
     user_message = action.payload["value"]
     await handle_message(cl.Message(content=user_message))
+
 
 @cl.on_message
 async def handle_message(message: cl.Message):
@@ -48,12 +55,28 @@ async def handle_message(message: cl.Message):
 
     messages = [{"role": "system", "content": "You are a travel agent who helps users plan their trips."}] + chat_history
     
-    response = await client.chat.completions.create(
-        messages=messages,
-        **settings
+    stream = await client.chat.completions.create(
+        messages=messages, stream=True, **settings
     )
 
-    reply = response.choices[0].message.content
-    await cl.Message(content=reply).send()
+    msg = cl.Message(content="")
+    await msg.send()
 
-    chat_history.append({"role": "assistant", "content": reply})
+    full_reply = ""
+
+    async for part in stream:
+        if token := part.choices[0].delta.content:
+            full_reply += token
+            await msg.stream_token(token)
+
+    await msg.update()
+
+    # response = await client.chat.completions.create(
+    #     messages=messages,
+    #     **settings
+    # )
+
+    # reply = response.choices[0].message.content
+    # await cl.Message(content=reply).send()
+
+    chat_history.append({"role": "assistant", "content": full_reply})

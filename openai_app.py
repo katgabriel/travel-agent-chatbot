@@ -59,24 +59,16 @@ async def handle_message(message: cl.Message):
         messages=messages, stream=True, **settings
     )
 
-    msg = cl.Message(content="")
+    msg = cl.Message(content="") # creates empty message to begin streaming
     await msg.send()
 
-    full_reply = ""
+    full_reply = "" # logs full reply to append to chat history
 
     async for part in stream:
         if token := part.choices[0].delta.content:
             full_reply += token
             await msg.stream_token(token)
 
-    await msg.update()
-
-    # response = await client.chat.completions.create(
-    #     messages=messages,
-    #     **settings
-    # )
-
-    # reply = response.choices[0].message.content
-    # await cl.Message(content=reply).send()
+    await msg.update() # completes the message stream
 
     chat_history.append({"role": "assistant", "content": full_reply})
